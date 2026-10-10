@@ -44,13 +44,23 @@ hostnames =
 domain_chunks = hostnames.each_slice(CLOUDFLARE_LIST_ITEM_LIMIT).to_a
 Utils::Log.logger.info("Splitting ad hostnames into #{domain_chunks.size} lists...")
 
-# Retrieve existing lists and policies
 existing_lists = Services::ListManager.fetch_existing_lists
 existing_policies = Services::PolicyManager.fetch_existing_policies
 
-# Manage policy
+# Find and remove our previous policy, if present.
 existing_policy = existing_policies.find { |policy| policy['name'] == AD_LIST_NAME }
 Services::PolicyManager.delete_policy(existing_policy['id']) if existing_policy
+
+# Find an unused precedence, ignoring our old policy.
+used_precedences = existing_policies
+  .reject { |policy| policy['name'] == AD_LIST_NAME }
+  .filter_map { |policy| policy['precedence']&.to_i }
+
+precedence = (1..10000).find do |value|
+  !used_precedences.include?(value)
+end
+
+raise 'No available Cloudflare policy precedence found' unless precedence
 
 # Process each domain chunk and manage lists
 list_ids = []
@@ -66,5 +76,9 @@ domain_chunks.each_with_index do |chunk, index|
 end
 
 # Create new policy
-Services::PolicyManager.create_policy(AD_LIST_NAME, 'Policy blocking ad domains', list_ids)
-Utils::Log.logger.info('Script completed.')
+Services::PolicyManager.create_policy(
+  AD_LIST_NAME,
+  'Policy blocking ad domains',
+  list_ids,
+  precedence
+)Utils::Log.logger.info('Script completed.')
