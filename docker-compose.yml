@@ -1,0 +1,16 @@
+services:
+  cloudflare-zero-trust-adblocker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cloudflare-zero-trust-adblocker
+    restart: "no"
+
+    environment:
+      CLOUDFLARE_API_KEY: "${CLOUDFLARE_API_KEY}"
+      CLOUDFLARE_EMAIL: "${CLOUDFLARE_EMAIL}"
+      CLOUDFLARE_ACCOUNT_ID: "${CLOUDFLARE_ACCOUNT_ID}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+
+    volumes:
+      - ./exclusions.txt:/app/exclusions.txt:ro
