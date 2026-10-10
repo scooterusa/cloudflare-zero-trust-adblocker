@@ -15,10 +15,31 @@ Utils::Log.logger.info('Starting script...')
 # Load exclusions
 exclusions = Processors::ExclusionsLoader.load_exclusions(EXCLUSIONS_FILE)
 
-# Download and process ad list
-ad_list_content = Processors::AdListProcessor.download_ad_list(AD_LIST_URL)
-hostnames = Processors::AdListProcessor.process_ad_list(ad_list_content, exclusions)
-Utils::Log.logger.info("Total unique ad hostnames minus exclusions: #{hostnames.size}")
+
+ad_list_content =
+  Processors::AdListProcessor.download_ad_list(AD_LIST_URL)
+
+# Download and merge the personal ad list, if configured
+personal_ad_list_url = ENV["PERSONAL_AD_LIST_URL"]
+
+if personal_ad_list_url && !personal_ad_list_url.empty?
+  puts "Downloading personal ad list..."
+
+  personal_ad_list_content =
+    Processors::AdListProcessor.download_ad_list(personal_ad_list_url)
+
+  ad_list_content = [
+    ad_list_content,
+    personal_ad_list_content
+  ].join("\n")
+end
+
+# Process the combined list using the existing validator
+hostnames =
+  Processors::AdListProcessor.process_ad_list(
+    ad_list_content,
+    exclusions
+  )
 
 domain_chunks = hostnames.each_slice(CLOUDFLARE_LIST_ITEM_LIMIT).to_a
 Utils::Log.logger.info("Splitting ad hostnames into #{domain_chunks.size} lists...")
